@@ -1,0 +1,5 @@
+Procesos,Rafagas,T. de llegada,Prioridad
+P1,3,0,1
+P2,4,1,2
+P3,5,2,3
+P4,2,3,1
