@@ -6,192 +6,152 @@ import util.GanttChart;
 import util.LectorCSV;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.util.List;
+import java.awt.event.ActionEvent;
 import java.util.ArrayList;
+import java.util.List;
 
 public class VentanaPlanificador extends JFrame {
 
-    private JTable tablaProcesos;
-    private JTextArea areaResultado;
-    private JComboBox<String> comboAlgoritmo;
-    private JTextField campoQuantum;
-    private JButton botonCargar, botonEjecutar;
     private List<Proceso> listaProcesos;
-    private JPanel panelMultinivel;
-    private List<JComboBox<String>> combosNiveles;
-    private List<JTextField> camposQuantumNiveles;
+    private List<JCheckBox> checkboxesAlgoritmos = new ArrayList<>();
+    private JTextArea areaResultado;
+    private JPanel panelChecks;
+    private JButton botonCargarCSV;
 
     public VentanaPlanificador() {
         setTitle("Planificador de Procesos");
-        setSize(800, 600);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // Panel superior con opciones
-        JPanel panelSuperior = new JPanel();
-        panelSuperior.setLayout(new FlowLayout());
+        // Inicializar con lista vacía
+        listaProcesos = new ArrayList<>();
 
-        comboAlgoritmo = new JComboBox<>(new String[]{
-                "FCFS", "SJF", "SJF Desalojo", "Prioridad", "Round Robin", "HRRN", "Cola Multinivel"
-        });
+        inicializarComponentes();
 
-        campoQuantum = new JTextField(3);
-        campoQuantum.setText("4");
+        pack();
+        setLocationRelativeTo(null);
+        setVisible(true);
+    }
 
-        botonCargar = new JButton("Cargar CSV");
-        botonEjecutar = new JButton("Ejecutar");
+    private void inicializarComponentes() {
+        panelChecks = new JPanel();
+        panelChecks.setLayout(new BoxLayout(panelChecks, BoxLayout.Y_AXIS));
 
-        panelSuperior.add(new JLabel("Algoritmo:"));
-        panelSuperior.add(comboAlgoritmo);
-        panelSuperior.add(new JLabel("Q:"));
-        panelSuperior.add(campoQuantum);
-        panelSuperior.add(botonCargar);
-        panelSuperior.add(botonEjecutar);
-        add(panelSuperior, BorderLayout.NORTH);
+        String[] algoritmos = {"FCFS", "SJF", "SJF Desalojo", "Prioridad", "Round Robin", "HRRN", "Cola Multinivel"};
 
-        // Panel central con tabla y configuración
-        JPanel panelCentral = new JPanel(new BorderLayout());
+        for (String nombre : algoritmos) {
+            JCheckBox check = new JCheckBox(nombre);
+            checkboxesAlgoritmos.add(check);
+            panelChecks.add(check);
+        }
 
-        tablaProcesos = new JTable();
-        JScrollPane scrollTabla = new JScrollPane(tablaProcesos);
-        panelCentral.add(scrollTabla, BorderLayout.CENTER);
+        // Botón para cargar CSV
+        botonCargarCSV = new JButton("Cargar CSV");
+        botonCargarCSV.addActionListener(this::cargarCSV);
 
-        panelMultinivel = new JPanel();
-        panelMultinivel.setLayout(new BoxLayout(panelMultinivel, BoxLayout.Y_AXIS));
-        panelMultinivel.setBorder(BorderFactory.createTitledBorder("Cola Multinivel (máx. 3 niveles)"));
-        panelMultinivel.setVisible(false);
+        JButton botonEjecutar = new JButton("Ejecutar");
+        botonEjecutar.addActionListener(this::ejecutarAlgoritmo);
 
-        combosNiveles = new ArrayList<>();
-        camposQuantumNiveles = new ArrayList<>();
-
-        JButton btnAgregarNivel = new JButton("Agregar Nivel");
-        btnAgregarNivel.addActionListener(e -> {
-            if (combosNiveles.size() < 3) {
-                agregarNivelMultinivel();
-            } else {
-                JOptionPane.showMessageDialog(this, "Máximo 3 niveles permitidos");
-            }
-        });
-
-        panelMultinivel.add(btnAgregarNivel);
-        panelCentral.add(panelMultinivel, BorderLayout.SOUTH);
-        add(panelCentral, BorderLayout.CENTER);
-
-        // Área de resultado abajo
-        areaResultado = new JTextArea(10, 70);
+        areaResultado = new JTextArea(25, 80);
+        areaResultado.setEditable(false);
         areaResultado.setFont(new Font("Monospaced", Font.PLAIN, 12));
-        JScrollPane scrollArea = new JScrollPane(areaResultado);
-        add(scrollArea, BorderLayout.SOUTH);
 
-        // Eventos
-        botonCargar.addActionListener(e -> cargarCSV());
-        botonEjecutar.addActionListener(e -> ejecutarAlgoritmo());
-        comboAlgoritmo.addActionListener(e -> {
-            String seleccion = (String) comboAlgoritmo.getSelectedItem();
-            boolean esMultinivel = "Cola Multinivel".equals(seleccion);
-            panelMultinivel.setVisible(esMultinivel);
-            campoQuantum.setVisible(!esMultinivel);
-            pack();
-        });
+        JScrollPane scrollPane = new JScrollPane(areaResultado);
 
-        pack();
+        // Panel para los botones
+        JPanel panelBotones = new JPanel(new FlowLayout());
+        panelBotones.add(botonCargarCSV);
+        panelBotones.add(botonEjecutar);
+
+        add(panelChecks, BorderLayout.WEST);
+        add(scrollPane, BorderLayout.CENTER);
+        add(panelBotones, BorderLayout.SOUTH);
     }
 
-    private void cargarCSV() {
-        JFileChooser chooser = new JFileChooser();
-        int resultado = chooser.showOpenDialog(this);
+    private void cargarCSV(ActionEvent e) {
+        JFileChooser fileChooser = new JFileChooser();
+        int resultado = fileChooser.showOpenDialog(this);
+
         if (resultado == JFileChooser.APPROVE_OPTION) {
-            String ruta = chooser.getSelectedFile().getAbsolutePath();
-            listaProcesos = LectorCSV.leerProcesos(ruta);
-            mostrarTabla(listaProcesos);
-        }
-    }
+            String rutaArchivo = fileChooser.getSelectedFile().getPath();
+            listaProcesos = LectorCSV.leerProcesos(rutaArchivo);
 
-    private void mostrarTabla(List<Proceso> lista) {
-        String[] columnas = {"Nombre", "Llegada", "Ráfagas", "Prioridad"};
-        DefaultTableModel modelo = new DefaultTableModel(columnas, 0);
-
-        for (Proceso p : lista) {
-            modelo.addRow(new Object[]{p.nombre, p.llegada, p.rafagasTotales, p.prioridad});
-        }
-
-        tablaProcesos.setModel(modelo);
-    }
-
-    private void agregarNivelMultinivel() {
-        JPanel nivelPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-
-        JComboBox<String> comboNivel = new JComboBox<>(new String[]{
-                "FCFS", "SJF", "Round Robin"
-        });
-
-        JTextField campoQ = new JTextField(3);
-        campoQ.setText("4");
-
-        combosNiveles.add(comboNivel);
-        camposQuantumNiveles.add(campoQ);
-
-        nivelPanel.add(new JLabel("Nivel " + combosNiveles.size() + ":"));
-        nivelPanel.add(comboNivel);
-        nivelPanel.add(new JLabel("Q:"));
-        nivelPanel.add(campoQ);
-
-        JButton btnEliminar = new JButton("X");
-        btnEliminar.addActionListener(e -> {
-            panelMultinivel.remove(nivelPanel);
-            combosNiveles.remove(comboNivel);
-            camposQuantumNiveles.remove(campoQ);
-            panelMultinivel.revalidate();
-            panelMultinivel.repaint();
-            pack();
-        });
-
-        nivelPanel.add(btnEliminar);
-        panelMultinivel.add(nivelPanel);
-        panelMultinivel.revalidate();
-        panelMultinivel.repaint();
-        pack();
-    }
-
-    private void ejecutarAlgoritmo() {
-        if (listaProcesos == null) return;
-
-        List<Proceso> copia = new ArrayList<>();
-        for (Proceso p : listaProcesos) {
-            copia.add(new Proceso(p.nombre, p.llegada, p.rafagasTotales, p.prioridad));
-        }
-
-        String seleccion = (String) comboAlgoritmo.getSelectedItem();
-        AlgoritmoPlanificacion algoritmo = switch (seleccion) {
-            case "FCFS" -> new FCFS();
-            case "SJF" -> new SJF();
-            case "SJF Desalojo" -> new SJFDesalojo();
-            case "Prioridad" -> new Prioridad();
-            case "Round Robin" -> new RoundRobin(Integer.parseInt(campoQuantum.getText()));
-            case "HRRN" -> new HRRN();
-            case "Cola Multinivel" -> {
-                List<AlgoritmoPlanificacion> algoritmos = new ArrayList<>();
-                for (int i = 0; i < combosNiveles.size(); i++) {
-                    String alg = (String) combosNiveles.get(i).getSelectedItem();
-                    AlgoritmoPlanificacion nivel = switch (alg) {
-                        case "FCFS" -> new FCFS();
-                        case "SJF" -> new SJF();
-                        case "Round Robin" -> new RoundRobin(Integer.parseInt(camposQuantumNiveles.get(i).getText()));
-                        default -> null;
-                    };
-                    if (nivel != null) algoritmos.add(nivel);
-                }
-                yield new ColaMultinivel(algoritmos);
+            if (listaProcesos.isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                        "No se pudieron cargar procesos del archivo",
+                        "Error", JOptionPane.ERROR_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this,
+                        "Procesos cargados correctamente: " + listaProcesos.size(),
+                        "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                mostrarProcesosCargados();
             }
-            default -> null;
-        };
-
-        if (algoritmo != null) {
-            algoritmo.ejecutar(copia);
-            String resultado = GanttChart.generarTexto(copia);
-            areaResultado.setText(resultado);
         }
+    }
+
+    private void mostrarProcesosCargados() {
+        StringBuilder sb = new StringBuilder("Procesos cargados:\n");
+        sb.append(String.format("%-10s %-10s %-10s %-10s\n",
+                "Nombre", "Ráfagas", "Llegada", "Prioridad"));
+
+        for (Proceso p : listaProcesos) {
+            sb.append(String.format("%-10s %-10d %-10d %-10d\n",
+                    p.nombre, p.rafagasTotales, p.llegada, p.prioridad));
+        }
+
+        areaResultado.setText(sb.toString());
+    }
+
+    private void ejecutarAlgoritmo(ActionEvent e) {
+        if (listaProcesos.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "No hay procesos cargados. Por favor, cargue un archivo CSV primero.",
+                    "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        StringBuilder resultados = new StringBuilder();
+        String[] algoritmosDisponibles = {"FCFS", "SJF", "SJF Desalojo", "Prioridad", "Round Robin", "HRRN", "Cola Multinivel"};
+
+        for (int i = 0; i < algoritmosDisponibles.length; i++) {
+            JCheckBox check = checkboxesAlgoritmos.get(i);
+            String algNombre = algoritmosDisponibles[i];
+
+            if (check.isSelected()) {
+                // Copia de la lista original
+                List<Proceso> copia = new ArrayList<>();
+                for (Proceso p : listaProcesos) {
+                    copia.add(new Proceso(p.nombre, p.llegada, p.rafagasTotales, p.prioridad));
+                }
+
+                AlgoritmoPlanificacion algoritmo = switch (algNombre) {
+                    case "FCFS" -> new FCFS();
+                    case "SJF" -> new SJF();
+                    case "SJF Desalojo" -> new SJFDesalojo();
+                    case "Prioridad" -> new Prioridad();
+                    case "Round Robin" -> new RoundRobin(2); // puedes modificar el quantum
+                    case "HRRN" -> new HRRN();
+                    case "Cola Multinivel" -> new ColaMultinivel(List.of(new FCFS(), new RoundRobin(2)));
+                    default -> null;
+                };
+
+                if (algoritmo != null) {
+                    algoritmo.ejecutar(copia);
+                    resultados.append("\nAlgoritmo: ").append(algNombre).append("\n");
+                    resultados.append(GanttChart.generarTexto(copia)).append("\n");
+                }
+            }
+        }
+
+        if (resultados.length() == 0) {
+            areaResultado.setText("No se seleccionó ningún algoritmo para ejecutar.");
+        } else {
+            areaResultado.setText(resultados.toString());
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(VentanaPlanificador::new);
     }
 }
