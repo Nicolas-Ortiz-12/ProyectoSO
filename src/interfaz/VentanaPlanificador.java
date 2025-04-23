@@ -23,14 +23,13 @@ public class VentanaPlanificador extends JFrame {
     private List<JComboBox<String>> combosNiveles;
     private List<JTextField> camposQuantumNiveles;
 
-
     public VentanaPlanificador() {
         setTitle("Planificador de Procesos");
         setSize(800, 600);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // Panel superior
+        // Panel superior con opciones
         JPanel panelSuperior = new JPanel();
         panelSuperior.setLayout(new FlowLayout());
 
@@ -52,52 +51,52 @@ public class VentanaPlanificador extends JFrame {
         panelSuperior.add(botonEjecutar);
         add(panelSuperior, BorderLayout.NORTH);
 
+        // Panel central con tabla y configuración
         JPanel panelCentral = new JPanel(new BorderLayout());
 
-
-        // Tabla
         tablaProcesos = new JTable();
         JScrollPane scrollTabla = new JScrollPane(tablaProcesos);
         panelCentral.add(scrollTabla, BorderLayout.CENTER);
 
-
         panelMultinivel = new JPanel();
-        panelMultinivel.setLayout(new FlowLayout());
-        panelMultinivel.setBorder(BorderFactory.createTitledBorder("Configuración Cola Multinivel"));
+        panelMultinivel.setLayout(new BoxLayout(panelMultinivel, BoxLayout.Y_AXIS));
+        panelMultinivel.setBorder(BorderFactory.createTitledBorder("Cola Multinivel (máx. 3 niveles)"));
         panelMultinivel.setVisible(false);
 
         combosNiveles = new ArrayList<>();
         camposQuantumNiveles = new ArrayList<>();
 
         JButton btnAgregarNivel = new JButton("Agregar Nivel");
-        btnAgregarNivel.addActionListener(e -> agregarNivelMultinivel());
+        btnAgregarNivel.addActionListener(e -> {
+            if (combosNiveles.size() < 3) {
+                agregarNivelMultinivel();
+            } else {
+                JOptionPane.showMessageDialog(this, "Máximo 3 niveles permitidos");
+            }
+        });
 
         panelMultinivel.add(btnAgregarNivel);
         panelCentral.add(panelMultinivel, BorderLayout.SOUTH);
-
         add(panelCentral, BorderLayout.CENTER);
 
-
-
-        // Área de resultado
+        // Área de resultado abajo
         areaResultado = new JTextArea(10, 70);
         areaResultado.setFont(new Font("Monospaced", Font.PLAIN, 12));
         JScrollPane scrollArea = new JScrollPane(areaResultado);
         add(scrollArea, BorderLayout.SOUTH);
 
-
-
+        // Eventos
         botonCargar.addActionListener(e -> cargarCSV());
         botonEjecutar.addActionListener(e -> ejecutarAlgoritmo());
         comboAlgoritmo.addActionListener(e -> {
             String seleccion = (String) comboAlgoritmo.getSelectedItem();
-            panelMultinivel.setVisible("Cola Multinivel".equals(seleccion));
-            campoQuantum.setVisible(!"Cola Multinivel".equals(seleccion));
+            boolean esMultinivel = "Cola Multinivel".equals(seleccion);
+            panelMultinivel.setVisible(esMultinivel);
+            campoQuantum.setVisible(!esMultinivel);
             pack();
         });
 
         pack();
-
     }
 
     private void cargarCSV() {
@@ -125,7 +124,7 @@ public class VentanaPlanificador extends JFrame {
         JPanel nivelPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
 
         JComboBox<String> comboNivel = new JComboBox<>(new String[]{
-                "FCFS", "SJF", "SJF Desalojo", "Prioridad", "Round Robin", "HRRN"
+                "FCFS", "SJF", "Round Robin"
         });
 
         JTextField campoQ = new JTextField(3);
@@ -139,7 +138,6 @@ public class VentanaPlanificador extends JFrame {
         nivelPanel.add(new JLabel("Q:"));
         nivelPanel.add(campoQ);
 
-        // Botón para eliminar nivel
         JButton btnEliminar = new JButton("X");
         btnEliminar.addActionListener(e -> {
             panelMultinivel.remove(nivelPanel);
@@ -149,15 +147,13 @@ public class VentanaPlanificador extends JFrame {
             panelMultinivel.repaint();
             pack();
         });
-        nivelPanel.add(btnEliminar);
 
+        nivelPanel.add(btnEliminar);
         panelMultinivel.add(nivelPanel);
         panelMultinivel.revalidate();
         panelMultinivel.repaint();
         pack();
     }
-
-
 
     private void ejecutarAlgoritmo() {
         if (listaProcesos == null) return;
@@ -173,10 +169,7 @@ public class VentanaPlanificador extends JFrame {
             case "SJF" -> new SJF();
             case "SJF Desalojo" -> new SJFDesalojo();
             case "Prioridad" -> new Prioridad();
-            case "Round Robin" -> {
-                int q = Integer.parseInt(campoQuantum.getText());
-                yield new RoundRobin(q);
-            }
+            case "Round Robin" -> new RoundRobin(Integer.parseInt(campoQuantum.getText()));
             case "HRRN" -> new HRRN();
             case "Cola Multinivel" -> {
                 List<AlgoritmoPlanificacion> algoritmos = new ArrayList<>();
@@ -185,11 +178,7 @@ public class VentanaPlanificador extends JFrame {
                     AlgoritmoPlanificacion nivel = switch (alg) {
                         case "FCFS" -> new FCFS();
                         case "SJF" -> new SJF();
-                        case "SJF Desalojo" -> new SJFDesalojo();
-                        case "Prioridad" -> new Prioridad();
-                        case "Round Robin" -> new RoundRobin(
-                                Integer.parseInt(camposQuantumNiveles.get(i).getText()));
-                        case "HRRN" -> new HRRN();
+                        case "Round Robin" -> new RoundRobin(Integer.parseInt(camposQuantumNiveles.get(i).getText()));
                         default -> null;
                     };
                     if (nivel != null) algoritmos.add(nivel);
@@ -206,4 +195,3 @@ public class VentanaPlanificador extends JFrame {
         }
     }
 }
-
