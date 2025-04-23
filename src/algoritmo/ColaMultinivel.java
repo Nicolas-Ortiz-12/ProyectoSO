@@ -2,37 +2,40 @@ package algoritmo;
 
 import modelo.Proceso;
 import java.util.*;
-
 public class ColaMultinivel extends AlgoritmoPlanificacion {
-    private final AlgoritmoPlanificacion[] colas = new AlgoritmoPlanificacion[3];
+    private final List<AlgoritmoPlanificacion> niveles;
+    private final List<List<Proceso>> colasPorNivel;
 
-    public ColaMultinivel(AlgoritmoPlanificacion cola1, AlgoritmoPlanificacion cola2, AlgoritmoPlanificacion cola3) {
-        colas[0] = cola1;
-        colas[1] = cola2;
-        colas[2] = cola3;
+    public ColaMultinivel(List<AlgoritmoPlanificacion> algoritmos) {
+        this.niveles = new ArrayList<>(algoritmos);
+        this.colasPorNivel = new ArrayList<>();
+        for (int i = 0; i < algoritmos.size(); i++) {
+            colasPorNivel.add(new ArrayList<>());
+        }
     }
 
     @Override
     public void ejecutar(List<Proceso> lista) {
         resetearProcesos(lista);
-        List<Proceso> cola1 = new ArrayList<>();
-        List<Proceso> cola2 = new ArrayList<>();
-        List<Proceso> cola3 = new ArrayList<>();
 
+        // Distribuir procesos según prioridad
         for (Proceso p : lista) {
-            if (p.prioridad == 1) cola1.add(p);
-            else if (p.prioridad == 2) cola2.add(p);
-            else cola3.add(p);
+            int nivel = Math.min(p.prioridad, niveles.size() - 1);
+            colasPorNivel.get(nivel).add(p);
         }
 
-        colas[0].ejecutar(cola1);
-        colas[1].ejecutar(cola2);
-        colas[2].ejecutar(cola3);
+        // Ejecutar cada nivel
+        int tiempoTotal = 0;
+        for (int i = 0; i < niveles.size(); i++) {
+            List<Proceso> procesosNivel = colasPorNivel.get(i);
+            if (!procesosNivel.isEmpty()) {
+                niveles.get(i).ejecutar(procesosNivel);
 
-        // Combinar resultados
-        lista.clear();
-        lista.addAll(cola1);
-        lista.addAll(cola2);
-        lista.addAll(cola3);
+                // Actualizar tiempo total
+                for (Proceso p : procesosNivel) {
+                    tiempoTotal = Math.max(tiempoTotal, p.llegada + p.tiempoRetorno);
+                }
+            }
+        }
     }
 }
